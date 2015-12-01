@@ -4,8 +4,10 @@ import std.stdio;
 import std.format;
 import std.path;
 import std.process;
+import std.file;
 
 string progHeader = q{
+string prefixContent = `%s`;
 };
 
 string progImports = q{
@@ -17,6 +19,7 @@ import std.range;
 string progMain = `
 void main() {
 	auto outfile = File("%s", "w");
+	outfile.writeln(prefixContent);
 `;
 
 string progBody = q{
@@ -53,6 +56,7 @@ int main(string[] args) {
 	string[] structNames;
 	string outputFile;
 	string[] prefixFiles;
+	bool keepRdmdFile;
 
 	auto rslt = getopt(args, 
 		"i|input",
@@ -66,6 +70,8 @@ int main(string[] args) {
 		"Paths to files which content should be placed at the front of the"
 		~ " outputfile", &prefixFiles,
 
+		"d|debug", "Do not delete the rdmd generator file", &keepRdmdFile,
+
 		"o|output",
 		"The path to the file to write the typescript interface to.",
 		&outputFile
@@ -78,20 +84,29 @@ int main(string[] args) {
 	}
 
 	if(outputFile.empty) {
-		outputFile = inputFile.stripExtension() ~ "_runner_.d";
+		outputFile = inputFile.stripExtension() ~ ".ts";
+	}
+
+	string runnerFile = format("%s%d%s", inputFile.stripExtension(),
+		thisProcessID(), "_runner_.d"
+	);
+
+	string prefixContent;
+	foreach(file; prefixFiles) {
+		prefixContent ~= readText(file);
 	}
 
 	{
-		auto file = File(outputFile, "w");
+		auto file = File(runnerFile, "w");
 
-		file.write(progHeader);
 		auto inputFileHandle = File(inputFile, "r");
 		foreach(line; inputFileHandle.byLine) {
 			file.writeln(line);
 		}
+
+		file.writefln(progHeader, prefixContent);
    
-		string resultFile = inputFile.stripExtension() ~ ".ts";
-		file.write(progImports ~ progMain.format(resultFile));
+		file.write(progImports ~ progMain.format(outputFile));
 		foreach(string it; structNames) {
 			file.write("\t{");
 			file.write(progBody.format(it, it));
@@ -100,7 +115,11 @@ int main(string[] args) {
 		file.writeln("}\n");
 	}
 
-	string shellCmd = "rdmd %s".format(outputFile);
+	string shellCmd = "rdmd %s".format(runnerFile);
 	auto pid = spawnShell(shellCmd);
-	return wait(pid);
+	auto rsltRdmd = wait(pid);
+	if(!keepRdmdFile && exists(runnerFile) && isFile(runnerFile)) {
+		remove(runnerFile);
+	}
+	return rsltRdmd;
 }
