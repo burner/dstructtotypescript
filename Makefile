@@ -1,0 +1,2 @@
+all:
+	dmd dstructtotypescript.d
