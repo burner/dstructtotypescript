@@ -41,11 +41,42 @@ void recursiveTBuild(T,O)(ref O outfile) {
 		return;
 	}
 }
+
+private size_t rank(E)(string name)
+    if (is(E == enum))
+{
+    foreach (i, member; EnumMembers!E)
+    {
+        if(__traits(identifier, EnumMembers!E[i]) == name) {
+            return member;
+		}
+    }
+    assert(0, "Not an enum member");
+}
+
+void enumBuild(T,O)(ref O outfile) {
+	//auto mem = [EnumMembers!T];	
+	outfile.writef("enum %s {", T.stringof);
+	bool first = true;
+	foreach(i, name; EnumMembers!T) {
+		if(!first) {
+			outfile.write(",\n");
+		} else {
+			outfile.write("\n");
+			first = false;
+		}
+
+		outfile.writef("\t%s = %s", name, 
+			rank!(T)(__traits(identifier, EnumMembers!T[i]))
+		);
+	}
+	outfile.writeln("\n}\n");
+}
 };
 
-string progBody = q{
-	alias AliasObj = %s;
-	outfile.writeln("interface %s {");
+string progBody = q{void writeStructOrClass(T,O)(ref O outfile) {
+	alias AliasObj = T;
+	outfile.writefln("interface %s {", T.stringof);
 	foreach(it; __traits(allMembers, AliasObj)) {
 		outfile.write("\t");
 		outfile.write(it);
@@ -57,7 +88,7 @@ string progBody = q{
 		outfile.writeln(";");
 	}
 	outfile.writeln("}\n");
-};
+}};
 
 int main(string[] args) {
 	string inputFile;
@@ -116,12 +147,19 @@ int main(string[] args) {
    
 		file.write(progImports ~ progMain.format(outputFile));
 		foreach(string it; structNames) {
-			file.write("\t{");
-			file.write(progBody.format(it, it));
-			file.writeln("\t}");
+			file.writefln("\tstatic if(isAggregateType!(%s)) {", it);
+			file.writefln("\t\twriteStructOrClass!(%s)(outfile);", it);
+			file.writefln("\t} else static if(is(%s == enum)) {", it);
+			file.writefln("\t\tenumBuild!(%s)(outfile);", it);
+			file.write("\t} else ");
+			file.writeln(
+				"{\n\t\tstatic assert(false, " ~
+				"\"Must be struct, class or enum\");\n\t}"
+			);
 		}
 		file.writeln("}\n\n");
 		file.writeln(recursiveTypeBuild);
+		file.writeln(progBody);
 	}
 
 	string shellCmd = "rdmd %s".format(runnerFile);

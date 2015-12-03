@@ -15,3 +15,9 @@ struct Obj {
 	Other[][5][] others2;
 	bool[][5][] bools;
 }
+
+enum Colors {
+	red = 0,
+	blue = 1,
+	green = 4
+}
