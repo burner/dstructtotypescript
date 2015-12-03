@@ -19,34 +19,46 @@ import std.range;
 string progMain = `
 void main() {
 	auto outfile = File("%s", "w");
+	outfile.writeln("// THIS FILE WAS GENERATED DO NOT MODIFY");
 	outfile.writeln(prefixContent);
 `;
+
+string recursiveTypeBuild = q{
+string recursiveTBuild(T,O)(ref O outfile) {
+	static if(isNumeric!(T)) {
+		outfile.write(": number");
+		return "";
+	} else static if(isBoolean!(T)) {
+		outfile.write(": bool");
+		return "";
+	} else static if(isSomeString!(T)) {
+		outfile.write(": string");
+		return "";
+	} else static if(isAggregateType!(T)) {
+		outfile.write(": ");
+		outfile.write(T.stringof);
+		return "";
+	} else static if(isArray!(T)) {
+		return "[]" ~ recursiveTBuild!(Unqual!(ElementType!T))(outfile);
+	} else {
+		static assert(false, "Passed Type: '" ~ T.stringof 
+			~ "' can't be represented in Typescript");
+	}
+}
+};
 
 string progBody = q{
 	alias AliasObj = %s;
 	outfile.writeln("interface %s {");
 	foreach(it; __traits(allMembers, AliasObj)) {
-		static if(isNumeric!(typeof(__traits(getMember, AliasObj, it)))) {
-			outfile.writeln("\t" ~ it ~ ": number;");
-		} else static if(isArray!(typeof(__traits(getMember, AliasObj, it)))
-				&& isNumeric!(ElementType!(typeof(__traits(getMember, AliasObj, it))))) 
-		{
-			outfile.writeln("\t" ~ it ~ ": number[];");
-		} else static if(isSomeString!(typeof(__traits(getMember, AliasObj, it)))) {
-			outfile.writeln("\t" ~ it ~ ": string;");
-		} else static if(isArray!(typeof(__traits(getMember, AliasObj, it)))
-				&& isSomeString!(ElementType!(typeof(__traits(getMember, AliasObj, it))))) 
-		{
-			outfile.writeln("\t" ~ it ~ ": string[];");
-		} else static if(isAggregateType!(typeof(__traits(getMember, AliasObj, it)))) {
-			outfile.writeln("\t" ~ it ~ ": " ~ typeof(__traits(getMember, AliasObj, it)).stringof
-				~ ";");
-		} else static if(isArray!(typeof(__traits(getMember, AliasObj, it)))
-				&& isAggregateType!(ElementType!(typeof(__traits(getMember, AliasObj, it))))) 
-		{
-			outfile.writeln("\t" ~ it ~ ": " ~ typeof(__traits(getMember, AliasObj, it)).stringof
-				~ ";");
-		}
+		outfile.write("\t");
+		outfile.write(it);
+		outfile.write(
+			recursiveTBuild!(
+				Unqual!(typeof(__traits(getMember, AliasObj, it)))
+			)(outfile)
+		);
+		outfile.writeln(";");
 	}
 	outfile.writeln("}\n");
 };
@@ -112,7 +124,8 @@ int main(string[] args) {
 			file.write(progBody.format(it, it));
 			file.writeln("\t}");
 		}
-		file.writeln("}\n");
+		file.writeln("}\n\n");
+		file.writeln(recursiveTypeBuild);
 	}
 
 	string shellCmd = "rdmd %s".format(runnerFile);
