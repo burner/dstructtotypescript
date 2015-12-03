@@ -28,7 +28,7 @@ void recursiveTBuild(T,O)(ref O outfile) {
 	static if(isNumeric!(T)) {
 		outfile.write(": number");
 	} else static if(isBoolean!(T)) {
-		outfile.write(": bool");
+		outfile.write(": boolean");
 	} else static if(isSomeString!(T)) {
 		outfile.write(": string");
 	} else static if(isAggregateType!(T)) {
@@ -55,7 +55,6 @@ private size_t rank(E)(string name)
 }
 
 void enumBuild(T,O)(ref O outfile) {
-	//auto mem = [EnumMembers!T];	
 	outfile.writef("enum %s {", T.stringof);
 	bool first = true;
 	foreach(i, name; EnumMembers!T) {

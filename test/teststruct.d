@@ -13,7 +13,7 @@ struct Obj {
 	Other other;
 	Other[] others;
 	Other[][5][] others2;
-	bool[][5][] bools;
+	bool[][5] bools;
 }
 
 enum Colors {
