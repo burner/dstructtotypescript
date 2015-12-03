@@ -24,25 +24,21 @@ void main() {
 `;
 
 string recursiveTypeBuild = q{
-string recursiveTBuild(T,O)(ref O outfile) {
+void recursiveTBuild(T,O)(ref O outfile) {
 	static if(isNumeric!(T)) {
 		outfile.write(": number");
-		return "";
 	} else static if(isBoolean!(T)) {
 		outfile.write(": bool");
-		return "";
 	} else static if(isSomeString!(T)) {
 		outfile.write(": string");
-		return "";
 	} else static if(isAggregateType!(T)) {
 		outfile.write(": ");
 		outfile.write(T.stringof);
-		return "";
 	} else static if(isArray!(T)) {
-		return "[]" ~ recursiveTBuild!(Unqual!(ElementType!T))(outfile);
+		recursiveTBuild!(Unqual!(ElementType!T))(outfile);
+		outfile.write("[]");
 	} else {
-		static assert(false, "Passed Type: '" ~ T.stringof 
-			~ "' can't be represented in Typescript");
+		return;
 	}
 }
 };
@@ -53,11 +49,11 @@ string progBody = q{
 	foreach(it; __traits(allMembers, AliasObj)) {
 		outfile.write("\t");
 		outfile.write(it);
-		outfile.write(
-			recursiveTBuild!(
-				Unqual!(typeof(__traits(getMember, AliasObj, it)))
-			)(outfile)
-		);
+
+		recursiveTBuild!(
+			Unqual!(typeof(__traits(getMember, AliasObj, it)))
+		)(outfile);
+		
 		outfile.writeln(";");
 	}
 	outfile.writeln("}\n");
