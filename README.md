@@ -1,11 +1,16 @@
+= dstructtotypescript
+
 dstructtotypescript is a program that created typescript interfaces out of D
 structs.
 
-The web framework vibe.d was very strong struct to json serializing
-capabilities. Typescript allows the user to have a typed version of
+The web framework vibe.d was very good at serializing data into json. 
+Typescript allows the user to have a typed version of
 javascript. Which means the user has to keep two version of the same structure
-in sync. That is tedious and error prone work. dstructtotypescript alleviates
-that problem as its automatically generates the typescript for the user.
+in sync. That is tedious and error prone task. dstructtotypescript alleviates
+this problem as its automatically generates the typescript interfaces for the
+user.
+
+= Example
 
 Given a D two structs (test/teststruct.d):
 ```D
@@ -64,5 +69,5 @@ interface Other {
 }
 ```
 
-test/testfileprefix.ts is a file whos containted is prefixed to the resulting
+test/testfileprefix.ts is a file which contains is prefixed to the resulting
 .ts file
