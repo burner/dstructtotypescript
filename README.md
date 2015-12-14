@@ -71,3 +71,7 @@ interface Other {
 
 test/testfileprefix.ts is a file which contains is prefixed to the resulting
 .ts file
+
+## License
+
+GPL3
