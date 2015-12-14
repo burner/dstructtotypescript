@@ -7,7 +7,7 @@ javascript. Which means the user has to keep two version of the same structure
 in sync. That is tedious and error prone work. dstructtotypescript alleviates
 that problem as its automatically generates the typescript for the user.
 
-Given a D two structs (test/struct.d):
+Given a D two structs (test/teststruct.d):
 ```D
 module test.teststruct;
 
