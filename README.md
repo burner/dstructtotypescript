@@ -1,4 +1,4 @@
-= dstructtotypescript
+# dstructtotypescript
 
 dstructtotypescript is a program that created typescript interfaces out of D
 structs.
@@ -10,7 +10,7 @@ in sync. That is tedious and error prone task. dstructtotypescript alleviates
 this problem as its automatically generates the typescript interfaces for the
 user.
 
-= Example
+## Example
 
 Given a D two structs (test/teststruct.d):
 ```D
