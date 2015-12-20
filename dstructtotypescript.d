@@ -171,7 +171,7 @@ void interfaceBuild(T,O)(ref O outfile) {
 			outfile.writeln("\t\t\t\t}");
 			outfile.writeln("\t\t\t} else {");
 			outfile.writeln("\t\t\t\ton_result(JSON.parse(this.responseText)); ");
-			outfile.writeln("\t\t\t};");
+			outfile.writeln("\t\t\t}");
 			outfile.writeln("\t\t}");
 		    outfile.writeln("\t\txhr.send();");
 		    outfile.writeln("\t}");
