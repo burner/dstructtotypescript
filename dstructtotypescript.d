@@ -14,6 +14,7 @@ string progImports = q{
 import std.stdio;
 import std.traits;
 import std.range;
+import std.experimental.logger;
 };
 
 string progMain = `
@@ -54,6 +55,8 @@ private size_t rank(E)(string name)
     assert(0, "Not an enum member");
 }
 
+enum bool isInterface(T) = is(T == interface);
+
 void enumBuild(T,O)(ref O outfile) {
 	outfile.writef("enum %s {", T.stringof);
 	bool first = true;
@@ -70,6 +73,111 @@ void enumBuild(T,O)(ref O outfile) {
 		);
 	}
 	outfile.writeln("\n}\n");
+}
+
+template TypeMapper(T, string back = "") {
+	static if(isNumeric!T) {
+		enum TypeMapper = "number" ~ back;
+	} else static if(isBoolean!T) {
+		enum TypeMapper = "boolean" ~ back;
+	} else static if(isSomeString!T) {
+		enum TypeMapper = "string" ~ back;
+	} else static if(isAggregateType!T) {
+		enum TypeMapper = T.stringof ~ back;
+	} else static if(isArray!T) {
+		enum TypeMapper = TypeMapper!(ElementType!T) ~ back;
+	} else static assert(false, T.stringof);
+}
+
+string buildParams(T,string member)() {
+	import std.meta : staticMap;
+	import std.traits : Parameters, ParameterIdentifierTuple;
+	import std.algorithm.iteration : map;
+	import std.typecons : tuple, Tuple;
+	import std.format : format;
+	auto paraType = [staticMap!(
+		TypeMapper,
+		Parameters!(__traits(getMember, T, member))
+	)];
+
+	auto paraIds = [ParameterIdentifierTuple!(__traits(getMember, T, member))];
+
+	auto app = appender!string();
+	bool notFirst = false;
+	foreach(a, b; lockstep(paraIds, paraType)) {
+		if(notFirst) {
+			app.put(", ");	
+		} else {
+			notFirst = true;
+		}
+		app.put(format("%s: %s", a, b));
+	}
+
+	return app.data;
+}
+
+string urlFromFuncName(string name) {
+	import std.string : indexOf;
+	import std.uni : isUpper, toLower;
+	auto app = appender!string();
+	auto gIdx = name.indexOf("get");
+	auto pIdx = name.indexOf("post");
+	if(gIdx != -1) {
+		name = name[3 .. $];
+	} else if(pIdx != -1) {
+		name = name[4 .. $];
+	}
+
+	foreach(idx, it; name) {
+		if(idx != 0 && isUpper(it)) {
+			app.put("_");
+			app.put(toLower(it));
+		} else if(isUpper(it)) {
+			app.put(toLower(it));
+		} else {
+			app.put(it);
+		}
+	}
+
+	return app.data;
+}
+
+void interfaceBuild(T,O)(ref O outfile) {
+	outfile.writefln("%s = new function() {", T.stringof);
+	outfile.writeln("\tvar toRestString = function(v:any) :any { return v; }");
+	foreach(it; __traits(allMembers, T)) {
+		static if(isCallable!(__traits(getMember, T, it))) {
+			outfile.writefln("\tthis.%s = function(%s, on_result, on_error) {",
+				it, buildParams!(T,it)()
+			);
+			outfile.write("\t\tvar url = \"127.0.0.1:8080/");
+			outfile.write(urlFromFuncName(it));
+			outfile.writeln("\";");
+			foreach(jt; [ParameterIdentifierTuple!(__traits(getMember, T, it))]) {
+				outfile.write("\t\turl = url + \"?");
+				outfile.write(jt);
+				outfile.write("=\" + encodeURIComponent(toRestString(");
+				outfile.write(jt);
+				outfile.writeln("));");
+			}
+			outfile.writeln("\t\tvar xhr = new XMLHttpRequest();");
+			outfile.writeln("\t\txhr.open('GET', url, true);");
+			outfile.writeln("\t\txhr.onload = function () { ");
+			outfile.writeln("\t\t\tif(this.status >= 400) { ");
+			outfile.writeln("\t\t\t\tif(on_error) {");
+			outfile.writeln("\t\t\t\t\ton_error(JSON.parse(this.responseText));");
+			outfile.writeln("\t\t\t\t} else {");
+			outfile.writeln("\t\t\t\t\tconsole.log(this.responseText); ");
+			outfile.writeln("\t\t\t\t}");
+			outfile.writeln("\t\t\t} else {");
+			outfile.writeln("\t\t\t\ton_result(JSON.parse(this.responseText)); ");
+			outfile.writeln("\t\t\t};");
+			outfile.writeln("\t\t}");
+		    outfile.writeln("\t\txhr.send();");
+		    outfile.writeln("\t}");
+		}
+	}
+	outfile.writeln("}");
 }
 };
 
@@ -146,7 +254,9 @@ int main(string[] args) {
    
 		file.write(progImports ~ progMain.format(outputFile));
 		foreach(string it; structNames) {
-			file.writefln("\tstatic if(isAggregateType!(%s)) {", it);
+			file.writefln("\tstatic if(isInterface!(%s)) {", it);
+			file.writefln("\t\tinterfaceBuild!(%s)(outfile);", it);
+			file.writefln("\t} else static if(isAggregateType!(%s)) {", it);
 			file.writefln("\t\twriteStructOrClass!(%s)(outfile);", it);
 			file.writefln("\t} else static if(is(%s == enum)) {", it);
 			file.writefln("\t\tenumBuild!(%s)(outfile);", it);

@@ -21,3 +21,8 @@ enum Colors {
 	blue = 1,
 	green = 4
 }
+
+interface Model {
+	Other postFuncBar(Obj obj, Colors color, int id);
+	Colors getFunfunc(Colors a, Obj color, Other id);
+}
