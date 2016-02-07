@@ -22,20 +22,21 @@ void main() {
 	auto outfile = File("%s", "w");
 	outfile.writeln("// THIS FILE WAS GENERATED DO NOT MODIFY");
 	outfile.writeln(prefixContent);
+	outfile.writeln("module %s {");
 `;
 
 string recursiveTypeBuild = q{
 void recursiveTBuild(T,O)(ref O outfile) {
-	static if(isNumeric!(T)) {
+	static if(isNumeric!(T) && !isCallable!(T)) {
 		outfile.write(": number");
-	} else static if(isBoolean!(T)) {
+	} else static if(isBoolean!(T) && !isCallable!(T)) {
 		outfile.write(": boolean");
-	} else static if(isSomeString!(T)) {
+	} else static if(isSomeString!(T) && !isCallable!(T)) {
 		outfile.write(": string");
-	} else static if(isAggregateType!(T)) {
+	} else static if(isAggregateType!(T) && !isCallable!(T)) {
 		outfile.write(": ");
 		outfile.write(T.stringof);
-	} else static if(isArray!(T)) {
+	} else static if(isArray!(T) && !isCallable!(T)) {
 		recursiveTBuild!(Unqual!(ElementType!T))(outfile);
 		outfile.write("[]");
 	} else {
@@ -58,7 +59,7 @@ private size_t rank(E)(string name)
 enum bool isInterface(T) = is(T == interface);
 
 void enumBuild(T,O)(ref O outfile) {
-	outfile.writef("enum %s {", T.stringof);
+	outfile.writef("export enum %s {", T.stringof);
 	bool first = true;
 	foreach(i, name; EnumMembers!T) {
 		if(!first) {
@@ -183,7 +184,7 @@ void interfaceBuild(T,O)(ref O outfile) {
 
 string progBody = q{void writeStructOrClass(T,O)(ref O outfile) {
 	alias AliasObj = T;
-	outfile.writefln("interface %s {", T.stringof);
+	outfile.writefln("export interface %s {", T.stringof);
 	foreach(it; __traits(allMembers, AliasObj)) {
 		outfile.write("\t");
 		outfile.write(it);
@@ -203,6 +204,7 @@ int main(string[] args) {
 	string outputFile;
 	string[] prefixFiles;
 	bool keepRdmdFile;
+	string moduleName;
 
 	auto rslt = getopt(args, 
 		"i|input",
@@ -217,6 +219,8 @@ int main(string[] args) {
 		~ " outputfile", &prefixFiles,
 
 		"d|debug", "Do not delete the rdmd generator file", &keepRdmdFile,
+
+		"m|module", "The name of the module.", &moduleName,
 
 		"o|output",
 		"The path to the file to write the typescript interface to.",
@@ -252,7 +256,7 @@ int main(string[] args) {
 
 		file.writefln(progHeader, prefixContent);
    
-		file.write(progImports ~ progMain.format(outputFile));
+		file.write(progImports ~ progMain.format(outputFile, moduleName));
 		foreach(string it; structNames) {
 			file.writefln("\tstatic if(isInterface!(%s)) {", it);
 			file.writefln("\t\tinterfaceBuild!(%s)(outfile);", it);
@@ -266,6 +270,7 @@ int main(string[] args) {
 				"\"Must be struct, class or enum\");\n\t}"
 			);
 		}
+		file.writeln("\toutfile.writeln(\"}\n\");\n");
 		file.writeln("}\n\n");
 		file.writeln(recursiveTypeBuild);
 		file.writeln(progBody);

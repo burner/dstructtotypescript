@@ -1,6 +1,6 @@
 /// <reference path="teststruct.ts" />
 
-var o: Other;
+var o: Other = {id:"hello"};
 o.id = "must accept string";
 
 var ob: Obj;
@@ -13,3 +13,13 @@ ob.other = o;
 ob.others = [o];
 ob.others2 = [[[o]]];
 ob.bools = [[true, false, true]];
+
+if(Colors.red != 0) {
+	console.log("red not 0");
+}
+if(Colors.blue != 1) {
+	console.log("blue not 1");
+}
+if(Colors.green != 4) {
+	console.log("green not 4");
+}
