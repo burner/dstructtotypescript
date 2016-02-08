@@ -27,18 +27,19 @@ void main() {
 
 string recursiveTypeBuild = q{
 void recursiveTBuild(T,O)(ref O outfile) {
+	import std.format;
 	static if(isNumeric!(T) && !isCallable!(T)) {
-		outfile.write(": number");
+		formattedWrite(outfile, ": number");
 	} else static if(isBoolean!(T) && !isCallable!(T)) {
-		outfile.write(": boolean");
+		formattedWrite(outfile, ": boolean");
 	} else static if(isSomeString!(T) && !isCallable!(T)) {
-		outfile.write(": string");
+		formattedWrite(outfile, ": string");
 	} else static if(isAggregateType!(T) && !isCallable!(T)) {
-		outfile.write(": ");
-		outfile.write(T.stringof);
+		formattedWrite(outfile, ": ");
+		formattedWrite(outfile, T.stringof);
 	} else static if(isArray!(T) && !isCallable!(T)) {
 		recursiveTBuild!(Unqual!(ElementType!T))(outfile);
-		outfile.write("[]");
+		formattedWrite(outfile, "[]");
 	} else {
 		return;
 	}
@@ -144,7 +145,7 @@ string urlFromFuncName(string name) {
 }
 
 void interfaceBuild(T,O)(ref O outfile) {
-	outfile.writefln("%s = new function() {", T.stringof);
+	outfile.writefln("export function %s() {", T.stringof);
 	outfile.writeln("\tvar toRestString = function(v:any) :any { return v; }");
 	foreach(it; __traits(allMembers, T)) {
 		static if(isCallable!(__traits(getMember, T, it))) {
@@ -183,19 +184,30 @@ void interfaceBuild(T,O)(ref O outfile) {
 };
 
 string progBody = q{void writeStructOrClass(T,O)(ref O outfile) {
+	import std.array : appender;
 	alias AliasObj = T;
-	outfile.writefln("export interface %s {", T.stringof);
+	outfile.writefln("export class %s {", T.stringof);
+	outfile.writeln("\tconstructor(");
+	bool first = true;
 	foreach(it; __traits(allMembers, AliasObj)) {
-		outfile.write("\t");
-		outfile.write(it);
-
+		auto tApp = appender!string();
 		recursiveTBuild!(
 			Unqual!(typeof(__traits(getMember, AliasObj, it)))
-		)(outfile);
-		
-		outfile.writeln(";");
+		)(tApp);
+
+		if(first && tApp.data.length > 0) {
+			outfile.write("\t\tpublic ");
+			outfile.write(it);
+			outfile.write(tApp.data);
+			first = false;
+		} else if(!first && tApp.data.length > 0) {
+			outfile.write(",\n");
+			outfile.write("\t\tpublic ");
+			outfile.write(it);
+			outfile.write(tApp.data);
+		}
 	}
-	outfile.writeln("}\n");
+	outfile.writeln("\n\t){}\n}");
 }};
 
 int main(string[] args) {
